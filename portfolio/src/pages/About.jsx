@@ -2,11 +2,15 @@ import React from "react";
 
 export default function About() {
   return (
-    <div className="max-w-4xl mx-auto py-20 px-6">
-      <h2 className="text-3xl font-bold mb-4">About Me</h2>
-      <p className="text-gray-400">
-        Software developer skilled in React, JavaScript, and backend systems.
+    <section className="section-box">
+      <h2>About Me</h2>
+      <p>
+        I am a software developer focused on building responsive, modern web
+        applications using React, JavaScript, and backend services.
       </p>
-    </div>
+      <div style={{ marginTop: "1.5rem" }}>
+        <button className="btn">Download Resume</button>
+      </div>
+    </section>
   );
 }

@@ -1,0 +1,40 @@
+:root {
+  --gold: #D4AF37;
+  --dark-grey: #1a1a1a;
+  --light-grey: #f5f5f5;
+  --white: #ffffff;
+}
+
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Global theme */
+body {
+  background: red;
+  color: var(--white);
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Links */
+a {
+  color: var(--gold);
+  text-decoration: none;
+}
+
+/* Buttons */
+button {
+  background: var(--gold);
+  color: var(--dark-grey);
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+/* Sections */
+.section {
+  padding: 60px 20px;
+}

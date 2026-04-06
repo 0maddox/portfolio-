@@ -12,16 +12,18 @@ import Contact from "./pages/contact";
 export default function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-950 text-white">
+      <div className="app-wrapper">
         <Navbar />
 
-        <Routes>
+        <main className="container">
+          <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/skills" element={<Skills />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/contact" element={<Contact />} />
         </Routes>
+        </main>
       </div>
     </Router>
   );

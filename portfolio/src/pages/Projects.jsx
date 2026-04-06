@@ -16,34 +16,35 @@ export default function Projects() {
       : projects.filter((p) => p.category === filter);
 
   return (
-    <div className="py-20 max-w-5xl mx-auto px-6">
-      <h2 className="text-3xl font-bold mb-8 text-center">Projects</h2>
+    <section className="section-box">
+      <h2>Projects</h2>
+      <p>Filtered project cards built with the main theme styles.</p>
 
-      <div className="flex justify-center gap-3 mb-8">
-        <button onClick={() => setFilter("all")} className="px-4 py-2 rounded bg-gray-800 text-white">
+      <div style={{ marginTop: "1rem" }}>
+        <button onClick={() => setFilter("all")} className="btn">
           All
         </button>
-        <button onClick={() => setFilter("frontend")} className="px-4 py-2 rounded bg-gray-800 text-white">
+        <button onClick={() => setFilter("frontend")} className="btn" style={{ marginLeft: "0.75rem" }}>
           Frontend
         </button>
-        <button onClick={() => setFilter("react")} className="px-4 py-2 rounded bg-gray-800 text-white">
+        <button onClick={() => setFilter("react")} className="btn" style={{ marginLeft: "0.75rem" }}>
           React
         </button>
       </div>
 
-      <motion.div layout className="grid md:grid-cols-2 gap-6">
+      <motion.div layout style={{ marginTop: "2rem", display: "grid", gap: "1.5rem" }}>
         {filteredProjects.map((project) => (
           <motion.div
             layout
             key={project.id}
-            whileHover={{ scale: 1.05 }}
-            className="border border-gray-800 p-4 rounded-lg"
+            whileHover={{ scale: 1.03 }}
+            className="card"
           >
-            <h3 className="font-semibold">{project.name}</h3>
-            <p className="text-gray-400 text-sm">{project.category}</p>
+            <h3>{project.name}</h3>
+            <p>{project.category} project featuring modern UI and functionality.</p>
           </motion.div>
         ))}
       </motion.div>
-    </div>
+    </section>
   );
 }
