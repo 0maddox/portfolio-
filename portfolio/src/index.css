@@ -2059,12 +2059,18 @@ code,
   position: fixed;
   bottom: 10px;
   right: 10px;
+  z-index: 120;
   background: var(--bg-secondary);
   padding: 0.5rem;
   border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   border: 1px solid var(--border);
   font-size: 0.8rem;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .admin-icon.logged-in {
@@ -2076,6 +2082,15 @@ code,
   align-items: center;
   justify-content: center;
   overflow: visible;
+}
+
+@media (max-width: 900px) {
+  .admin-icon {
+    right: 12px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    min-height: 42px;
+    padding: 0.55rem 0.65rem;
+  }
 }
 
 .admin-initials-circle {
@@ -2124,26 +2139,68 @@ code,
   pointer-events: auto;
 }
 
-.login-form {
-  position: absolute;
-  bottom: 50px;
-  right: 0;
-  background: var(--bg-secondary);
+.admin-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
   padding: 1rem;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.admin-login-card {
+  width: min(560px, 100%);
+  max-height: min(92vh, 760px);
+  overflow: auto;
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 14px;
+  padding: 1.1rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.admin-login-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.admin-login-header h3 {
+  margin: 0;
+}
+
+.admin-login-close {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.admin-login-form {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.login-form input {
+.admin-login-form input,
+.forgot-form input {
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
-.login-form button {
+.admin-login-form button,
+.forgot-form button {
   padding: 0.5rem;
   background: #D4AF37;
   color: var(--bg-primary);
@@ -2161,6 +2218,7 @@ code,
   border: none;
   text-decoration: underline;
   cursor: pointer;
+  width: fit-content;
 }
 
 .forgot-panel {
@@ -2185,6 +2243,20 @@ code,
   font-size: 0.75rem;
   color: var(--text-secondary);
   word-break: break-all;
+}
+
+@media (max-width: 600px) {
+  .admin-login-overlay {
+    padding: 0.6rem;
+  }
+
+  .admin-login-card {
+    width: 100%;
+    min-height: calc(100vh - 1.2rem);
+    max-height: calc(100vh - 1.2rem);
+    border-radius: 12px;
+    padding: 0.95rem;
+  }
 }
 
 .skill-bar {

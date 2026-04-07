@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function getEmailInitials(value) {
   const localPart = (value || '').split('@')[0].replace(/[^a-zA-Z]/g, '');
@@ -13,6 +14,7 @@ function getEmailInitials(value) {
 }
 
 export default function Admin() {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLogoutPop, setShowLogoutPop] = useState(false);
   const [email, setEmail] = useState('');
@@ -62,8 +64,10 @@ export default function Admin() {
         setEmail((loginData.email || '').replace(/\s+/g, ''));
         setShowLogin(false);
         setShowLogoutPop(false);
+        setShowForgotPassword(false);
         setLoginData({ email: '', password: '' });
         window.dispatchEvent(new Event('admin-session-changed'));
+        navigate('/');
       } else {
         alert(data.message || 'Login failed');
       }
@@ -149,7 +153,7 @@ export default function Admin() {
         if (isLoggedIn) {
           setShowLogoutPop(true);
         } else {
-          setShowLogin(!showLogin);
+          setShowLogin(true);
         }
       }}
       title={isLoggedIn ? `Logged in as ${email}` : 'Admin Login'}
@@ -173,73 +177,98 @@ export default function Admin() {
       )}
 
       {showLogin && !isLoggedIn && (
-        <form onSubmit={handleLogin} className="login-form" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={loginData.email}
-            onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={loginData.password}
-            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-            required
-          />
-          <button type="submit" onClick={(e) => e.stopPropagation()}>Login</button>
-          <button
-            type="button"
-            className="forgot-link"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowForgotPassword(!showForgotPassword);
-              setForgotEmail(loginData.email);
-              setForgotMessage('');
-            }}
-          >
-            Forgot password?
-          </button>
-
-          {showForgotPassword && (
-            <div className="forgot-panel" onClick={(e) => e.stopPropagation()}>
-              <form onSubmit={handleForgotPassword} className="forgot-form">
-                <input
-                  type="email"
-                  placeholder="Admin email"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  required
-                />
-                <button type="submit">Generate reset token</button>
-              </form>
-
-              {generatedToken && <p className="token-preview">Token: {generatedToken}</p>}
-
-              <form onSubmit={handleResetPassword} className="forgot-form">
-                <input
-                  type="text"
-                  placeholder="Reset token"
-                  value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="New password (min 8 chars)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
-                <button type="submit">Reset password</button>
-              </form>
-
-              {forgotMessage && <p className="forgot-message">{forgotMessage}</p>}
+        <div
+          className="admin-login-overlay"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowLogin(false);
+            setShowForgotPassword(false);
+          }}
+        >
+          <div className="admin-login-card" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-login-header">
+              <h3>Admin Login</h3>
+              <button
+                type="button"
+                className="admin-login-close"
+                onClick={() => {
+                  setShowLogin(false);
+                  setShowForgotPassword(false);
+                }}
+              >
+                Close
+              </button>
             </div>
-          )}
-        </form>
+
+            <form onSubmit={handleLogin} className="admin-login-form">
+              <input
+                type="email"
+                placeholder="Email"
+                value={loginData.email}
+                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                required
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={loginData.password}
+                onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                required
+              />
+              <button type="submit">Login</button>
+            </form>
+
+            <button
+              type="button"
+              className="forgot-link"
+              onClick={() => {
+                setShowForgotPassword(!showForgotPassword);
+                setForgotEmail(loginData.email);
+                setForgotMessage('');
+              }}
+            >
+              Forgot password?
+            </button>
+
+            {showForgotPassword && (
+              <div className="forgot-panel">
+                <form onSubmit={handleForgotPassword} className="forgot-form">
+                  <input
+                    type="email"
+                    placeholder="Admin email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                  />
+                  <button type="submit">Generate reset token</button>
+                </form>
+
+                {generatedToken && <p className="token-preview">Token: {generatedToken}</p>}
+
+                <form onSubmit={handleResetPassword} className="forgot-form">
+                  <input
+                    type="text"
+                    placeholder="Reset token"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="New password (min 8 chars)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={8}
+                    required
+                  />
+                  <button type="submit">Reset password</button>
+                </form>
+
+                {forgotMessage && <p className="forgot-message">{forgotMessage}</p>}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
