@@ -140,7 +140,8 @@ You can also deploy:
 - Backend to Render/Railway/Fly.io
 
 If split deployment is used:
-- Update frontend API calls to point to backend domain.
+- Set frontend environment variable `VITE_API_BASE_URL` to your backend origin (example: `https://your-backend.onrender.com`).
+- Frontend API calls now use `VITE_API_BASE_URL` when present, and fallback to same-origin `/api/*` when not set.
 - Configure CORS securely for your deployed frontend origin.
 
 ## Security Checklist Before Production

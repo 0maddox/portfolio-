@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from '../utils/api';
 
 const defaultAccept = 'image/*,.pdf,.txt,.md,.doc,.docx,.rtf';
 
@@ -11,7 +12,7 @@ export default function AdminUploadPanel({ title = 'Upload Asset', accept = defa
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/check-session', {
+        const res = await fetch(apiUrl('/api/check-session'), {
           credentials: 'include'
         });
         const data = await res.json();
@@ -35,7 +36,7 @@ export default function AdminUploadPanel({ title = 'Upload Asset', accept = defa
       const formData = new FormData();
       formData.append('image', file);
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch(apiUrl('/api/upload'), {
         method: 'POST',
         credentials: 'include',
         body: formData

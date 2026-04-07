@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import Cropper from "react-easy-crop";
+import { apiUrl, resolveAssetUrl } from "../utils/api";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -141,8 +142,8 @@ export default function Home() {
     const loadHomeData = async () => {
       try {
         const [sessionRes, dataRes] = await Promise.all([
-          fetch("/api/check-session", { credentials: "include" }),
-          fetch("/api/data", { credentials: "include" }),
+          fetch(apiUrl("/api/check-session"), { credentials: "include" }),
+          fetch(apiUrl("/api/data"), { credentials: "include" }),
         ]);
 
         const sessionData = await sessionRes.json();
@@ -162,6 +163,8 @@ export default function Home() {
 
         if (nextImage) {
           setProfileImage(nextImage);
+        } else {
+          setProfileImage(DEFAULT_PROFILE_IMAGE);
         }
 
         if (Number.isFinite(nextImageSize) && nextImageSize >= 120 && nextImageSize <= 320) {
@@ -169,6 +172,7 @@ export default function Home() {
         }
       } catch {
         setIsAdmin(false);
+        setProfileImage(DEFAULT_PROFILE_IMAGE);
       }
     };
 
@@ -327,7 +331,7 @@ export default function Home() {
         const formData = new FormData();
         formData.append("image", new File([pendingCroppedBlob], "profile.jpg", { type: "image/jpeg" }));
 
-        const uploadRes = await fetch("/api/upload-profile-image", {
+        const uploadRes = await fetch(apiUrl("/api/upload-profile-image"), {
           method: "POST",
           credentials: "include",
           body: formData,
@@ -342,10 +346,10 @@ export default function Home() {
         nextProfileImage = uploadData.url;
       }
 
-      const res = await fetch("/api/data", {
+      const res = await fetch(apiUrl("/api/data"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           about,
           profileImage: nextProfileImage,
@@ -435,7 +439,7 @@ export default function Home() {
               }}
             >
               <img
-                src={profileImage}
+                src={resolveAssetUrl(profileImage) || DEFAULT_PROFILE_IMAGE}
                 alt="Nicholas Musau Kioko profile"
                 className="hero-avatar"
                 onError={(e) => {
@@ -572,7 +576,7 @@ export default function Home() {
                       }}
                     >
                       <img
-                        src={profileImage}
+                        src={resolveAssetUrl(profileImage) || DEFAULT_PROFILE_IMAGE}
                         alt="Current hero profile"
                         className="hero-live-preview-img"
                         onError={(e) => {
@@ -592,7 +596,7 @@ export default function Home() {
                       }}
                     >
                       <img
-                        src={pendingPreviewSrc || profileImage}
+                        src={resolveAssetUrl(pendingPreviewSrc || profileImage) || DEFAULT_PROFILE_IMAGE}
                         alt="New hero profile preview"
                         className="hero-live-preview-img"
                         onError={(e) => {

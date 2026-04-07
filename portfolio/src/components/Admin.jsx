@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../utils/api';
 
 function getEmailInitials(value) {
   const localPart = (value || '').split('@')[0].replace(/[^a-zA-Z]/g, '');
@@ -33,7 +34,7 @@ export default function Admin() {
 
   const checkSession = async () => {
     try {
-      const res = await fetch('/api/check-session', {
+      const res = await fetch(apiUrl('/api/check-session'), {
         credentials: 'include'
       });
       const data = await res.json();
@@ -52,7 +53,7 @@ export default function Admin() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch(apiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -77,7 +78,7 @@ export default function Admin() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/logout', {
+    await fetch(apiUrl('/api/logout'), {
       method: 'POST',
       credentials: 'include'
     });
@@ -93,7 +94,7 @@ export default function Admin() {
     setGeneratedToken('');
 
     try {
-      const res = await fetch('/api/forgot-password', {
+      const res = await fetch(apiUrl('/api/forgot-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -120,7 +121,7 @@ export default function Admin() {
     setForgotMessage('');
 
     try {
-      const res = await fetch('/api/reset-password', {
+      const res = await fetch(apiUrl('/api/reset-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

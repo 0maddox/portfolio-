@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Ruby bundle build artifacts
+portfolio_rails_api/vendor/bundle/

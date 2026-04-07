@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { apiUrl } from "../utils/api";
 
 const githubUsername = "0maddox";
 const GITHUB_CACHE_KEY = "portfolio_projects_github_cache_v1";
@@ -261,8 +262,8 @@ export default function Projects() {
     const loadLocalPageData = async () => {
       try {
         const [sessionRes, dataRes] = await Promise.all([
-          fetch("/api/check-session", { credentials: "include" }),
-          fetch("/api/data", { credentials: "include" }),
+          fetch(apiUrl("/api/check-session"), { credentials: "include" }),
+          fetch(apiUrl("/api/data"), { credentials: "include" }),
         ]);
 
         if (cancelled) return;
@@ -378,7 +379,7 @@ export default function Projects() {
 
     const loadPublicImages = async () => {
       try {
-        const res = await fetch("/api/public-images", { credentials: "include" });
+        const res = await fetch(apiUrl("/api/public-images"), { credentials: "include" });
         if (!res.ok || cancelled) return;
         const data = await res.json();
         if (Array.isArray(data?.images)) {
@@ -500,7 +501,7 @@ export default function Projects() {
         formData.append("image", file);
         formData.append("project", selectedProjectTitle);
 
-        const res = await fetch("/api/upload-project-image", {
+        const res = await fetch(apiUrl("/api/upload-project-image"), {
           method: "POST",
           credentials: "include",
           body: formData,
@@ -540,7 +541,7 @@ export default function Projects() {
     setIsSaving(true);
 
     try {
-      const res = await fetch("/api/data", {
+      const res = await fetch(apiUrl("/api/data"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -573,7 +574,7 @@ export default function Projects() {
     const autoSave = async () => {
       setIsSaving(true);
       try {
-        const res = await fetch("/api/data", {
+        const res = await fetch(apiUrl("/api/data"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -700,7 +701,7 @@ export default function Projects() {
         formData.append("image", file);
         formData.append("project", projectTitle);
 
-        const res = await fetch("/api/upload-project-image", {
+        const res = await fetch(apiUrl("/api/upload-project-image"), {
           method: "POST",
           credentials: "include",
           body: formData,
