@@ -18,7 +18,11 @@ module PortfolioRailsApi
 
     config.api_only = true
     config.middleware.use ActionDispatch::Cookies
-    config.middleware.use ActionDispatch::Session::CookieStore
+    config.middleware.use ActionDispatch::Session::CookieStore,
+      key: "_portfolio_admin_session",
+      httponly: true,
+      secure: Rails.env.production?,
+      same_site: (Rails.env.production? ? :none : :lax)
 
     config.active_storage.routes_prefix = "/rails/active_storage"
   end

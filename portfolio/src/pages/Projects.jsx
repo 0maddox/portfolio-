@@ -391,7 +391,6 @@ export default function Projects() {
     };
 
     loadLocalPageData();
-    loadGithubProjects();
     loadPublicImages();
 
     return () => {
@@ -401,41 +400,12 @@ export default function Projects() {
   }, []);
 
   const allProjects = useMemo(() => {
-    return [...editableProjects, ...githubProjects];
-  }, [editableProjects, githubProjects]);
+    return editableProjects;
+  }, [editableProjects]);
 
   const allProjectsWithPublicImages = useMemo(() => {
-    const galleryFallback = publicImages[0] || DEFAULT_PROJECT_IMAGE;
-
-    if (!Array.isArray(publicImages) || publicImages.length === 0) {
-      return allProjects;
-    }
-
-    return allProjects.map((project) => {
-      if (project.manualImages) {
-        return project;
-      }
-
-      const slug = slugifyProjectTitle(project.title);
-      const matching = publicImages.filter((imgPath) => imgPath.toLowerCase().includes(slug));
-
-      if (matching.length === 0) {
-        return normalizeProject({
-          ...project,
-          image: project.image || galleryFallback,
-          images: Array.isArray(project.images) && project.images.length > 0
-            ? project.images
-            : [galleryFallback],
-        });
-      }
-
-      return normalizeProject({
-        ...project,
-        image: matching[0],
-        images: matching,
-      });
-    });
-  }, [allProjects, publicImages]);
+    return allProjects;
+  }, [allProjects]);
 
   const filteredProjects = useMemo(() => {
     return allProjectsWithPublicImages.filter((project) => {
