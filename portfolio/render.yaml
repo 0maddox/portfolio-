@@ -3,7 +3,7 @@ services:
     name: portfolio-rails-api
     env: ruby
     plan: free
-    rootDir: portfolio_rails_api
+    rootDir: portfolio/portfolio_rails_api
     buildCommand: bundle install && bundle exec rails db:migrate && bundle exec rails db:seed
     startCommand: bundle exec puma -C config/puma.rb
     envVars:
