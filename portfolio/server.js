@@ -245,7 +245,7 @@ let siteData = {
     }
   ],
   about: 'I am familiar with React, JavaScript, HTML, CSS, Ruby on Rails, SQL, and PostgreSQL. I design and ship scalable web products with strong UX, clean code, and meaningful motion.',
-  profileImage: '/images/me.jpg',
+  profileImage: '/images/profile-default.png',
   skills: []
 };
 
@@ -264,6 +264,10 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+export default app;

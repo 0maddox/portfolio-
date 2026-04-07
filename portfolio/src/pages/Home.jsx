@@ -48,6 +48,7 @@ const highlights = [
 ];
 
 const githubProfileUrl = "https://github.com/0maddox";
+const DEFAULT_PROFILE_IMAGE = "/images/profile-default.png";
 
 function createImage(source) {
   return new Promise((resolve, reject) => {
@@ -106,7 +107,7 @@ export default function Home() {
   const [repoError, setRepoError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
-  const [profileImage, setProfileImage] = useState("/images/me.jpg");
+  const [profileImage, setProfileImage] = useState(DEFAULT_PROFILE_IMAGE);
   const [profileImageSize, setProfileImageSize] = useState(defaultAvatarSize);
   const [editorImageSrc, setEditorImageSrc] = useState("");
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
@@ -437,6 +438,10 @@ export default function Home() {
                 src={profileImage}
                 alt="Nicholas Musau Kioko profile"
                 className="hero-avatar"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = DEFAULT_PROFILE_IMAGE;
+                }}
               />
             </div>
             {isAdmin && (
@@ -570,6 +575,10 @@ export default function Home() {
                         src={profileImage}
                         alt="Current hero profile"
                         className="hero-live-preview-img"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = DEFAULT_PROFILE_IMAGE;
+                        }}
                       />
                     </div>
                   </div>
@@ -586,6 +595,10 @@ export default function Home() {
                         src={pendingPreviewSrc || profileImage}
                         alt="New hero profile preview"
                         className="hero-live-preview-img"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = DEFAULT_PROFILE_IMAGE;
+                        }}
                       />
                     </div>
                   </div>

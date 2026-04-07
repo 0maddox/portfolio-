@@ -47,12 +47,26 @@
   transition: all 0.2s ease-in-out;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   transition: all 0.3s ease;
+  overflow-x: hidden;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
 }
 
 .container {
@@ -670,8 +684,8 @@ body {
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 1126px;
   margin: 0 auto;
   text-align: center;
   border-inline: 1px solid var(--border);
@@ -1602,6 +1616,52 @@ code,
 }
 
 @media (max-width: 900px) {
+  .section-box {
+    padding: 1rem;
+  }
+
+  .navbar {
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: flex-start;
+  }
+
+  .navbar nav {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hero-actions .btn {
+    flex: 1 1 180px;
+  }
+
+  .repo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-filter-row {
+    align-items: center;
+  }
+
+  .card-library-row,
+  .card-link-row {
+    flex-wrap: wrap;
+  }
+
+  .card-library-row select,
+  .card-link-row input {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .card-library-assign-btn,
+  .card-save-media-btn,
+  .card-image-picker-toggle {
+    width: 100%;
+  }
+
   .projects-premium-grid {
     grid-template-columns: 1fr;
   }
@@ -1618,6 +1678,23 @@ code,
 
   .skills-projects-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero-avatar-wrap {
+    gap: 0.55rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .language-orbit-wrap {
+    width: 220px;
+    height: 220px;
+  }
+
+  .language-center-jump {
+    width: 104px;
+    height: 104px;
   }
 }
 
