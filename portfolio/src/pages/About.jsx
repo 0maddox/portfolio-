@@ -1,16 +1,20 @@
 import React from "react";
+import AdminUploadPanel from "../components/AdminUploadPanel";
+// import myPicture from "../images/me.jpg"; // place your picture in /src/images
 
 export default function About() {
   return (
-    <section className="section-box">
-      <h2>About Me</h2>
-      <p>
-        I am a software developer focused on building responsive, modern web
-        applications using React, JavaScript, and backend services.
-      </p>
-      <div style={{ marginTop: "1.5rem" }}>
-        <button className="btn">Download Resume</button>
+    <>
+      <AdminUploadPanel title="Upload profile/resume asset" />
+      <div className="resume-card">
+        <img src="/images/me.jpg" alt="My Portrait" />
+        <div className="resume-info">
+          <h3>Download My Resume</h3>
+          <a href="/resume.pdf" download>
+            <button>Download</button>
+          </a>
+        </div>
       </div>
-    </section>
+    </>
   );
 }

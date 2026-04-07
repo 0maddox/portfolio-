@@ -7,13 +7,13 @@
   --color-gold: #D4AF37;
   --color-gold-light: #f4d03f;
 
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --text-primary: #08060d;
-  --text-secondary: #6b6375;
+  --text: #ffffff;
+  --text-h: #ffffff;
+  --bg: #08060d;
+  --bg-primary: #08060d;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e4e7;
 
   --accent: #D4AF37; /* gold */
   --border: #e5e4e7;
@@ -30,7 +30,7 @@
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light;
+  color-scheme: dark;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -178,6 +178,326 @@ code,
 
 .navbar a:hover {
   color: var(--accent);
+}
+
+.projects-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.projects-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-upload-panel {
+  border: 1px dashed var(--accent);
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin: 0 0 1rem;
+  text-align: left;
+  background: var(--bg-secondary);
+}
+
+.admin-upload-title {
+  margin: 0 0 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.admin-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+.admin-upload-label input {
+  display: none;
+}
+
+.admin-upload-result,
+.admin-upload-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+}
+
+.admin-upload-error {
+  color: #ff7b7b;
+}
+
+.project-card {
+  border: 1px solid #e5e4e7;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  width: 250px;
+  transition: transform 0.3s ease;
+}
+
+.project-card p {
+  margin: 0.5rem 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+}
+
+.project-card img {
+  width: 100%;
+  border-radius: 10px;
+}
+
+.add-project-card {
+  width: min(680px, 100%);
+  margin: 0 auto;
+  text-align: left;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.add-project-card input,
+.add-project-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.add-project-card textarea {
+  resize: vertical;
+}
+
+.add-project-card button {
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.add-project-card button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.project-upload-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.project-upload-label input {
+  display: none;
+}
+
+.project-form-message {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.skills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.skill-card {
+  width: 200px;
+  padding: 1rem;
+  border: 1px solid #e5e4e7;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.progress-bar {
+  background: #f4f3ec;
+  border-radius: 5px;
+  height: 15px;
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+
+.progress {
+  background: #aa3bff;
+  height: 100%;
+  transition: width 1s ease-in-out;
+}
+
+.resume-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid #e5e4e7;
+  border-radius: 10px;
+  padding: 1rem;
+  max-width: 400px;
+  margin: auto;
+}
+
+.resume-card img {
+  width: 100px;
+  border-radius: 50%;
+}
+
+.resume-card button {
+  background: #aa3bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.resume-card button:hover {
+  background: #8c2acc;
+}
+
+.admin-icon {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: var(--bg-secondary);
+  padding: 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid #e5e4e7;
+  font-size: 0.8rem;
+}
+
+.admin-icon.logged-in {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.admin-initials-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.admin-logout-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 20;
+}
+
+.admin-icon.logged-in:hover .admin-logout-pop {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.login-form {
+  position: absolute;
+  bottom: 50px;
+  right: 0;
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border: 1px solid #e5e4e7;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.login-form input {
+  padding: 0.5rem;
+  border: 1px solid #e5e4e7;
+  border-radius: 3px;
+}
+
+.login-form button {
+  padding: 0.5rem;
+  background: #D4AF37;
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.forgot-link {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  text-align: left;
+  padding: 0;
+  margin-top: 0.25rem;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.forgot-panel {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.forgot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.token-preview,
+.forgot-message {
+  margin: 0;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-all;
 }
 
 .skill-bar {

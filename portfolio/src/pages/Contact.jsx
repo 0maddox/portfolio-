@@ -5,8 +5,8 @@ export default function Contact() {
     <section className="section-box">
       <h2>Contact Me</h2>
       <p>Please reach out at:</p>
-      <a href="mailto:nickkiim7@gmail.com" className="btn" style={{ display: "inline-block", marginTop: "1rem" }}>
-        nickkiim7@gmail.com
+      <a href="mailto:email@example.com" className="btn" style={{ display: "inline-block", marginTop: "1rem" }}>
+        email@example.com
       </a>
     </section>
   );

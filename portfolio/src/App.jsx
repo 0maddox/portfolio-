@@ -2,12 +2,13 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
+import Admin from "./components/Admin";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Skills from "./pages/Skills";
 import Projects from "./pages/Projects";
-import Contact from "./pages/contact";
+import Contact from "./pages/Contact";
 
 export default function App() {
   return (
@@ -24,6 +25,8 @@ export default function App() {
           <Route path="/contact" element={<Contact />} />
         </Routes>
         </main>
+
+        <Admin />
       </div>
     </Router>
   );
