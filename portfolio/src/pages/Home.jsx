@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import Cropper from "react-easy-crop";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -48,7 +49,57 @@ const highlights = [
 
 const githubProfileUrl = "https://github.com/0maddox";
 
+function createImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = source;
+  });
+}
+
+async function getCroppedBlob(imageSrc, cropPixels) {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = cropPixels.width;
+  canvas.height = cropPixels.height;
+
+  context.drawImage(
+    image,
+    cropPixels.x,
+    cropPixels.y,
+    cropPixels.width,
+    cropPixels.height,
+    0,
+    0,
+    cropPixels.width,
+    cropPixels.height
+  );
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Unable to process image."));
+        return;
+      }
+      resolve(blob);
+    }, "image/jpeg", 0.92);
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function Home() {
+  const defaultAvatarSize = 180;
   const [repos, setRepos] = useState([]);
   const [reposVisible, setReposVisible] = useState(false);
   const [reposLoading, setReposLoading] = useState(false);
@@ -56,11 +107,20 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileImage, setProfileImage] = useState("/images/me.jpg");
+  const [profileImageSize, setProfileImageSize] = useState(defaultAvatarSize);
+  const [editorImageSrc, setEditorImageSrc] = useState("");
+  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
+  const [cropZoom, setCropZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [pendingCroppedBlob, setPendingCroppedBlob] = useState(null);
+  const [pendingPreviewSrc, setPendingPreviewSrc] = useState("");
+  const [processingCrop, setProcessingCrop] = useState(false);
   const [heroDescription, setHeroDescription] = useState(
     "I am Nicholas Musau Kioko, a 23-year-old developer based in Nairobi. I work with React, JavaScript, HTML, CSS, Ruby on Rails, SQL, and PostgreSQL to design and ship scalable web products with strong UX, clean code, and meaningful motion."
   );
   const [editDescription, setEditDescription] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [centerIconIndex, setCenterIconIndex] = useState(0);
   const [centerIconVisible, setCenterIconVisible] = useState(false);
@@ -90,6 +150,7 @@ export default function Home() {
         const data = await dataRes.json();
         const nextDescription = (data.about || "").trim();
         const nextImage = (data.profileImage || "").trim();
+        const nextImageSize = Number(data.profileImageSize);
 
         if (nextDescription) {
           setHeroDescription(nextDescription);
@@ -100,6 +161,10 @@ export default function Home() {
 
         if (nextImage) {
           setProfileImage(nextImage);
+        }
+
+        if (Number.isFinite(nextImageSize) && nextImageSize >= 120 && nextImageSize <= 320) {
+          setProfileImageSize(nextImageSize);
         }
       } catch {
         setIsAdmin(false);
@@ -199,29 +264,46 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      setProfileMessage("Please choose an image file.");
+      e.target.value = "";
+      return;
+    }
+
     setProfileMessage("");
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setProfileMessage(data.message || "Could not upload image");
-        return;
-      }
-
-      setProfileImage(data.url || profileImage);
-      setProfileMessage("Image uploaded. Save profile to apply.");
+      const dataUrl = await blobToDataUrl(file);
+      setEditorImageSrc(dataUrl);
+      setPendingCroppedBlob(null);
+      setPendingPreviewSrc("");
+      setCropPosition({ x: 0, y: 0 });
+      setCropZoom(1);
+      setProfileMessage("Image loaded. Adjust crop and zoom, then click Apply Crop.");
     } catch {
-      setProfileMessage("Unable to upload image right now.");
+      setProfileMessage("Unable to load image right now.");
     } finally {
       e.target.value = "";
+    }
+  };
+
+  const handleApplyCrop = async () => {
+    if (!editorImageSrc || !croppedAreaPixels) {
+      setProfileMessage("Choose and position an image first.");
+      return;
+    }
+
+    try {
+      setProcessingCrop(true);
+      setProfileMessage("");
+      const croppedBlob = await getCroppedBlob(editorImageSrc, croppedAreaPixels);
+      const previewDataUrl = await blobToDataUrl(croppedBlob);
+      setPendingCroppedBlob(croppedBlob);
+      setPendingPreviewSrc(previewDataUrl);
+      setProfileMessage("Crop ready. Save profile to upload and publish this image.");
+    } catch {
+      setProfileMessage("Could not crop image. Try another file.");
+    } finally {
+      setProcessingCrop(false);
     }
   };
 
@@ -237,13 +319,36 @@ export default function Home() {
 
     try {
       setSavingProfile(true);
+      let nextProfileImage = profileImage;
+
+      if (pendingCroppedBlob) {
+        setUploadingImage(true);
+        const formData = new FormData();
+        formData.append("image", new File([pendingCroppedBlob], "profile.jpg", { type: "image/jpeg" }));
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.url) {
+          setProfileMessage(uploadData.message || "Could not upload cropped image.");
+          return;
+        }
+
+        nextProfileImage = uploadData.url;
+      }
+
       const res = await fetch("/api/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           about,
-          profileImage,
+          profileImage: nextProfileImage,
+          profileImageSize,
         }),
       });
       const data = await res.json();
@@ -254,12 +359,17 @@ export default function Home() {
       }
 
       setHeroDescription(about);
+      setProfileImage(nextProfileImage);
+      setPendingCroppedBlob(null);
+      setPendingPreviewSrc("");
+      setEditorImageSrc("");
       setShowProfileEditor(false);
       setProfileMessage("Profile updated successfully.");
     } catch {
       setProfileMessage("Unable to save profile right now.");
     } finally {
       setSavingProfile(false);
+      setUploadingImage(false);
     }
   };
 
@@ -316,7 +426,19 @@ export default function Home() {
       >
         <div className="hero-copy">
           <motion.div variants={itemVariants} className="hero-avatar-wrap">
-            <img src={profileImage} alt="Nicholas Musau Kioko profile" className="hero-avatar" />
+            <div
+              className="hero-avatar-frame"
+              style={{
+                width: `${profileImageSize}px`,
+                height: `${profileImageSize}px`,
+              }}
+            >
+              <img
+                src={profileImage}
+                alt="Nicholas Musau Kioko profile"
+                className="hero-avatar"
+              />
+            </div>
             {isAdmin && (
               <button
                 type="button"
@@ -324,6 +446,11 @@ export default function Home() {
                 onClick={() => {
                   setShowProfileEditor((prev) => !prev);
                   setEditDescription(heroDescription);
+                  setEditorImageSrc("");
+                  setPendingCroppedBlob(null);
+                  setPendingPreviewSrc("");
+                  setCropPosition({ x: 0, y: 0 });
+                  setCropZoom(1);
                   setProfileMessage("");
                 }}
               >
@@ -369,9 +496,102 @@ export default function Home() {
               transition={{ duration: 0.25 }}
             >
               <label className="hero-upload-label">
-                <span>Upload Profile Picture</span>
+                <span>Choose Profile Picture</span>
                 <input type="file" accept="image/*" onChange={handleProfileImageUpload} />
               </label>
+
+              {editorImageSrc && (
+                <div className="hero-cropper-panel">
+                  <p>Drag to position. Use zoom for a cleaner portrait crop.</p>
+                  <div className="hero-cropper-wrap">
+                    <Cropper
+                      image={editorImageSrc}
+                      crop={cropPosition}
+                      zoom={cropZoom}
+                      aspect={1}
+                      cropShape="round"
+                      showGrid={false}
+                      onCropChange={setCropPosition}
+                      onCropComplete={(_, areaPixels) => setCroppedAreaPixels(areaPixels)}
+                      onZoomChange={setCropZoom}
+                    />
+                  </div>
+                  <label className="hero-zoom-control" htmlFor="hero-crop-zoom">
+                    Zoom: {cropZoom.toFixed(1)}x
+                    <input
+                      id="hero-crop-zoom"
+                      type="range"
+                      min="1"
+                      max="3"
+                      step="0.1"
+                      value={cropZoom}
+                      onChange={(e) => setCropZoom(Number(e.target.value))}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn hero-btn-secondary"
+                    onClick={handleApplyCrop}
+                    disabled={processingCrop}
+                  >
+                    {processingCrop ? "Processing crop..." : "Apply Crop"}
+                  </button>
+                </div>
+              )}
+
+              <div className="hero-size-control">
+                <label htmlFor="hero-avatar-size-slider">
+                  Profile Image Size: {profileImageSize}px
+                </label>
+                <input
+                  id="hero-avatar-size-slider"
+                  type="range"
+                  min="120"
+                  max="320"
+                  step="5"
+                  value={profileImageSize}
+                  onChange={(e) => setProfileImageSize(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="hero-live-preview">
+                <p>Live Preview ({profileImageSize}px)</p>
+                <div className="hero-preview-grid">
+                  <div>
+                    <small>Current</small>
+                    <div
+                      className="hero-live-preview-frame"
+                      style={{
+                        width: `${profileImageSize}px`,
+                        height: `${profileImageSize}px`,
+                      }}
+                    >
+                      <img
+                        src={profileImage}
+                        alt="Current hero profile"
+                        className="hero-live-preview-img"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <small>New</small>
+                    <div
+                      className="hero-live-preview-frame"
+                      style={{
+                        width: `${profileImageSize}px`,
+                        height: `${profileImageSize}px`,
+                      }}
+                    >
+                      <img
+                        src={pendingPreviewSrc || profileImage}
+                        alt="New hero profile preview"
+                        className="hero-live-preview-img"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <textarea
                 rows={4}
                 placeholder="Type a new hero description"
@@ -379,8 +599,8 @@ export default function Home() {
                 onChange={(e) => setEditDescription(e.target.value)}
                 required
               />
-              <button type="submit" className="btn" disabled={savingProfile}>
-                {savingProfile ? "Saving..." : "Save Profile"}
+              <button type="submit" className="btn" disabled={savingProfile || uploadingImage}>
+                {uploadingImage ? "Uploading image..." : savingProfile ? "Saving..." : "Save Profile"}
               </button>
               {profileMessage && <p className="profile-message">{profileMessage}</p>}
             </motion.form>

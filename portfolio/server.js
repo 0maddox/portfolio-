@@ -41,7 +41,32 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage });
+
+const allowedMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/rtf',
+  'text/rtf'
+]);
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (allowedMimeTypes.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Unsupported file type. Please upload images, PDF, or text/document files.'));
+  }
+});
 
 // Mock admin credentials (in production, use database)
 const adminEmail = 'nickkiim7@gmail.com';
@@ -122,6 +147,13 @@ app.get('/api/check-session', (req, res) => {
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.session.admin) return res.status(403).json({ message: 'Not authorized' });
   res.json({ url: `/uploads/${req.file.filename}` });
+});
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError || err?.message?.includes('Unsupported file type')) {
+    return res.status(400).json({ message: err.message || 'Upload failed' });
+  }
+  return next(err);
 });
 
 // Update data (mock, in production use database)

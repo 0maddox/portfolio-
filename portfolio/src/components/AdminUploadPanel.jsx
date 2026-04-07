@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
-export default function AdminUploadPanel({ title = 'Upload Asset' }) {
+const defaultAccept = 'image/*,.pdf,.txt,.md,.doc,.docx,.rtf';
+
+export default function AdminUploadPanel({ title = 'Upload Asset', accept = defaultAccept }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadUrl, setUploadUrl] = useState('');
@@ -64,7 +66,7 @@ export default function AdminUploadPanel({ title = 'Upload Asset' }) {
         <span>{uploading ? 'Uploading...' : 'Choose file'}</span>
         <input
           type="file"
-          accept="image/*"
+          accept={accept}
           onChange={handleUpload}
           disabled={uploading}
         />

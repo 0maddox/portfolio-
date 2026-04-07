@@ -87,7 +87,10 @@ export default function About() {
 
   return (
     <>
-      <AdminUploadPanel title="Upload profile/resume asset" />
+      <AdminUploadPanel
+        title="Upload profile/resume asset"
+        accept="image/*,.pdf,.txt,.md,.doc,.docx,.rtf"
+      />
 
       <motion.section
         className="about-shell"
