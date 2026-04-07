@@ -140,7 +140,8 @@ let siteData = {
       url: 'https://portfolio.example.com'
     }
   ],
-  about: '',
+  about: 'I am familiar with React, JavaScript, HTML, CSS, Ruby on Rails, SQL, and PostgreSQL. I design and ship scalable web products with strong UX, clean code, and meaningful motion.',
+  profileImage: '/images/me.jpg',
   skills: []
 };
 

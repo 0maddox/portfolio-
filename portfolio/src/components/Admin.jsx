@@ -14,6 +14,7 @@ function getEmailInitials(value) {
 
 export default function Admin() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showLogoutPop, setShowLogoutPop] = useState(false);
   const [email, setEmail] = useState('');
   const [showLogin, setShowLogin] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
@@ -36,9 +37,13 @@ export default function Admin() {
       const data = await res.json();
       setIsLoggedIn(data.loggedIn);
       setEmail(data.email || '');
+      setShowLogoutPop(false);
+      window.dispatchEvent(new Event('admin-session-changed'));
     } catch {
       setIsLoggedIn(false);
       setEmail('');
+      setShowLogoutPop(false);
+      window.dispatchEvent(new Event('admin-session-changed'));
     }
   };
 
@@ -56,7 +61,9 @@ export default function Admin() {
         setIsLoggedIn(true);
         setEmail((loginData.email || '').replace(/\s+/g, ''));
         setShowLogin(false);
+        setShowLogoutPop(false);
         setLoginData({ email: '', password: '' });
+        window.dispatchEvent(new Event('admin-session-changed'));
       } else {
         alert(data.message || 'Login failed');
       }
@@ -72,6 +79,8 @@ export default function Admin() {
     });
     setIsLoggedIn(false);
     setEmail('');
+    setShowLogoutPop(false);
+    window.dispatchEvent(new Event('admin-session-changed'));
   };
 
   const handleForgotPassword = async (e) => {
@@ -137,7 +146,9 @@ export default function Admin() {
     <div
       className={`admin-icon ${isLoggedIn ? 'logged-in' : ''}`}
       onClick={() => {
-        if (!isLoggedIn) {
+        if (isLoggedIn) {
+          setShowLogoutPop(true);
+        } else {
           setShowLogin(!showLogin);
         }
       }}
@@ -148,7 +159,7 @@ export default function Admin() {
           <span className="admin-initials-circle">{getEmailInitials(email)}</span>
           <button
             type="button"
-            className="admin-logout-pop"
+            className={`admin-logout-pop ${showLogoutPop ? 'visible' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               handleLogout();
