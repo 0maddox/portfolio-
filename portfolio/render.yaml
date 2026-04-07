@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: portfolio-rails-api
+    env: ruby
+    plan: free
+    rootDir: portfolio_rails_api
+    buildCommand: bundle install && bundle exec rails db:migrate && bundle exec rails db:seed
+    startCommand: bundle exec puma -C config/puma.rb
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: "true"
+      - key: RAILS_SERVE_STATIC_FILES
+        value: "true"
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        value: https://portfolio-0maddox.netlify.app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: portfolio-rails-db
+          property: connectionString
+
+databases:
+  - name: portfolio-rails-db
+    plan: free
