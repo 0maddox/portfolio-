@@ -180,7 +180,8 @@ export default function Skills() {
     <section className="skills-page">
       <h2>My Skills</h2>
       <p className="skills-intro">
-        Levels, workflow, focus areas, and growth powered by real GitHub repo data.
+        I&apos;m Nicholas Musau Kioko, a 23-year-old developer living in Nairobi. These
+        are my levels, workflow, focus areas, and growth powered by real GitHub repo data.
       </p>
 
       <div className="skills-stats-grid">

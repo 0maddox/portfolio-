@@ -99,10 +99,11 @@ export default function About() {
 
         <motion.div variants={fadeUp} className="about-panel">
           <p className="about-kicker">Intro</p>
-          <h2>Hi, I&apos;m Nicholas. I build meaningful digital experiences.</h2>
+          <h2>Hi, I&apos;m Nicholas Musau Kioko. I build meaningful digital experiences.</h2>
           <p className="about-intro">
-            I combine psychology, technology, and creativity to create products
-            that users enjoy and remember.
+            I am a 23-year-old developer living in Nairobi, and I combine
+            psychology, technology, and creativity to create products that users
+            enjoy and remember.
           </p>
         </motion.div>
 

@@ -57,7 +57,7 @@ export default function Home() {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileImage, setProfileImage] = useState("/images/me.jpg");
   const [heroDescription, setHeroDescription] = useState(
-    "I am familiar with React, JavaScript, HTML, CSS, Ruby on Rails, SQL, and PostgreSQL. I design and ship scalable web products with strong UX, clean code, and meaningful motion."
+    "I am Nicholas Musau Kioko, a 23-year-old developer based in Nairobi. I work with React, JavaScript, HTML, CSS, Ruby on Rails, SQL, and PostgreSQL to design and ship scalable web products with strong UX, clean code, and meaningful motion."
   );
   const [editDescription, setEditDescription] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -316,7 +316,7 @@ export default function Home() {
       >
         <div className="hero-copy">
           <motion.div variants={itemVariants} className="hero-avatar-wrap">
-            <img src={profileImage} alt="Nicholas profile" className="hero-avatar" />
+            <img src={profileImage} alt="Nicholas Musau Kioko profile" className="hero-avatar" />
             {isAdmin && (
               <button
                 type="button"
@@ -337,7 +337,7 @@ export default function Home() {
           </motion.p>
 
           <motion.h1 variants={itemVariants}>
-            Hi, I&apos;m Nicholas. I build fast, beautiful web experiences.
+            Hi, I&apos;m Nicholas Musau Kioko. I&apos;m a 23-year-old developer in Nairobi building fast, beautiful web experiences.
           </motion.h1>
 
           <motion.p variants={itemVariants} className="hero-description">

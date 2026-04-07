@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 const githubUsername = "0maddox";
 
-const projects = [
+const baseProjects = [
   {
     title: "CODM Tournament Platform",
     description:
@@ -57,50 +57,89 @@ function statusClass(status) {
   return "soon";
 }
 
+function normalizeProject(project) {
+  const images = Array.isArray(project?.images)
+    ? project.images.filter(Boolean)
+    : [];
+  const fallbackImage = project?.image || "/images/portfolio.png";
+
+  return {
+    ...project,
+    image: fallbackImage,
+    images: images.length > 0 ? images : [fallbackImage],
+  };
+}
+
 export default function Projects() {
   const [selected, setSelected] = useState("All");
   const [activeProject, setActiveProject] = useState(null);
   const [githubProjects, setGithubProjects] = useState([]);
+  const [editableProjects, setEditableProjects] = useState(baseProjects.map(normalizeProject));
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [selectedProjectTitle, setSelectedProjectTitle] = useState(baseProjects[0]?.title || "");
+  const [editorMessage, setEditorMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [imageIndexes, setImageIndexes] = useState({});
+  const [maximizedMedia, setMaximizedMedia] = useState({});
 
   useEffect(() => {
-    const fetchGithubProjects = async () => {
+    const loadPageData = async () => {
       try {
-        const res = await fetch(
-          `https://api.github.com/users/${githubUsername}/repos?sort=updated&per_page=12`
-        );
-        if (!res.ok) return;
+        const [sessionRes, dataRes, githubRes] = await Promise.all([
+          fetch("/api/check-session", { credentials: "include" }),
+          fetch("/api/data", { credentials: "include" }),
+          fetch(`https://api.github.com/users/${githubUsername}/repos?sort=updated&per_page=12`),
+        ]);
 
-        const data = await res.json();
-        const mapped = Array.isArray(data)
-          ? data.filter((repo) => !repo.fork).map((repo) => ({
-              title: repo.name,
-              description: repo.description || "Repository synced from GitHub.",
-              image: "/images/portfolio.png",
-              tech: [repo.language || "Codebase"],
-              live: repo.homepage || "",
-              github: repo.html_url,
-              category: "Web App",
-              status: repo.homepage ? "Live" : "In Progress",
-              problem: "Need a maintainable project structure and clear implementation path.",
-              solution: "Implemented and iterated features directly from real project requirements.",
-              features: ["Version controlled", "Ongoing iteration", "Practical architecture"],
-              challenges: "Managing scope and technical trade-offs while improving quality.",
-              learned: "Better workflow discipline, debugging approach, and delivery speed.",
-            }))
-          : [];
+        const sessionData = await sessionRes.json();
+        setIsAdmin(Boolean(sessionData.loggedIn));
 
-        setGithubProjects(mapped);
+        if (dataRes.ok) {
+          const siteData = await dataRes.json();
+          const storedProjects = Array.isArray(siteData?.projects) && siteData.projects.length > 0
+            ? siteData.projects
+            : baseProjects;
+          const normalizedStored = storedProjects.map(normalizeProject);
+          setEditableProjects(normalizedStored);
+          setSelectedProjectTitle(normalizedStored[0]?.title || "");
+        }
+
+        if (githubRes.ok) {
+          const data = await githubRes.json();
+          const mapped = Array.isArray(data)
+            ? data.filter((repo) => !repo.fork).map((repo) => normalizeProject({
+                title: repo.name,
+                description: repo.description || "Repository synced from GitHub.",
+                image: "/images/portfolio.png",
+                tech: [repo.language || "Codebase"],
+                live: repo.homepage || "",
+                github: repo.html_url,
+                category: "Web App",
+                status: repo.homepage ? "Live" : "In Progress",
+                problem: "Need a maintainable project structure and clear implementation path.",
+                solution: "Implemented and iterated features directly from real project requirements.",
+                features: ["Version controlled", "Ongoing iteration", "Practical architecture"],
+                challenges: "Managing scope and technical trade-offs while improving quality.",
+                learned: "Better workflow discipline, debugging approach, and delivery speed.",
+              }))
+            : [];
+
+          setGithubProjects(mapped);
+        }
       } catch {
+        setIsAdmin(false);
         setGithubProjects([]);
       }
     };
 
-    fetchGithubProjects();
+    loadPageData();
   }, []);
 
   const allProjects = useMemo(() => {
-    return [...projects, ...githubProjects];
-  }, [githubProjects]);
+    return [...editableProjects, ...githubProjects];
+  }, [editableProjects, githubProjects]);
 
   const filteredProjects = useMemo(() => {
     return selected === "All"
@@ -108,23 +147,169 @@ export default function Projects() {
       : allProjects.filter((p) => p.category === selected);
   }, [allProjects, selected]);
 
-  const featuredProject = projects[0];
+  const featuredProject = editableProjects[0] || allProjects[0] || null;
+
+  const cycleProjectImage = (projectKey, totalImages, direction) => {
+    if (totalImages <= 1) return;
+    setImageIndexes((prev) => {
+      const current = prev[projectKey] || 0;
+      const next = (current + direction + totalImages) % totalImages;
+      return { ...prev, [projectKey]: next };
+    });
+  };
+
+  const toggleMediaSize = (projectKey) => {
+    setMaximizedMedia((prev) => ({ ...prev, [projectKey]: !prev[projectKey] }));
+  };
+
+  const handleUploadProjectImages = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    if (!selectedProjectTitle || files.length === 0) return;
+
+    setEditorMessage("");
+    setIsUploading(true);
+
+    try {
+      const uploadedUrls = [];
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.url) {
+          setEditorMessage(data.message || "Failed to upload one or more images.");
+          setIsUploading(false);
+          return;
+        }
+
+        uploadedUrls.push(data.url);
+      }
+
+      setEditableProjects((prev) => prev.map((project) => {
+        if (project.title !== selectedProjectTitle) return project;
+
+        const nextImages = [...(project.images || []), ...uploadedUrls].filter(Boolean);
+        return {
+          ...project,
+          image: nextImages[0] || project.image,
+          images: nextImages,
+        };
+      }));
+
+      setEditorMessage(`${uploadedUrls.length} image(s) uploaded. Click Save Project Media to persist.`);
+    } catch {
+      setEditorMessage("Unable to upload images right now.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSaveProjectMedia = async () => {
+    setEditorMessage("");
+    setIsSaving(true);
+
+    try {
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ projects: editableProjects }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setEditorMessage(data.message || "Could not save project media.");
+        return;
+      }
+
+      setEditorMessage("Project media saved successfully.");
+    } catch {
+      setEditorMessage("Unable to save project media right now.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <section className="projects-premium-page">
       <h2>My Projects</h2>
 
-      <motion.article
-        className="featured-project"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <p className="project-eyebrow">Featured Project</p>
-        <img src={featuredProject.image} alt={featuredProject.title} />
-        <h3>{featuredProject.title}</h3>
-        <p>{featuredProject.description}</p>
-      </motion.article>
+      {isAdmin && (
+        <div className="projects-admin-controls">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setShowEditor((prev) => !prev);
+              setEditorMessage("");
+            }}
+          >
+            {showEditor ? "Close Edit Projects" : "Edit Projects"}
+          </button>
+
+          {showEditor && (
+            <div className="add-project-card projects-editor-panel">
+              <label htmlFor="project-picker">Select project</label>
+              <select
+                id="project-picker"
+                value={selectedProjectTitle}
+                onChange={(e) => setSelectedProjectTitle(e.target.value)}
+              >
+                {editableProjects.map((project) => (
+                  <option key={project.title} value={project.title}>
+                    {project.title}
+                  </option>
+                ))}
+              </select>
+
+              <label className="project-upload-label" htmlFor="project-images-input">
+                Upload Project Images
+                <input
+                  id="project-images-input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleUploadProjectImages}
+                  disabled={isUploading}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={handleSaveProjectMedia}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save Project Media"}
+              </button>
+
+              {editorMessage && <p className="project-form-message">{editorMessage}</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {featuredProject && (
+        <motion.article
+          className="featured-project"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <p className="project-eyebrow">Featured Project</p>
+          <img src={(featuredProject.images && featuredProject.images[0]) || featuredProject.image} alt={featuredProject.title} />
+          <h3>{featuredProject.title}</h3>
+          <p>{featuredProject.description}</p>
+        </motion.article>
+      )}
 
       <div className="project-filter-row">
         {categories.map((category) => (
@@ -150,22 +335,76 @@ export default function Projects() {
             whileHover={{ y: -5, scale: 1.01 }}
             onClick={() => setActiveProject(project)}
           >
-            <div className="project-media-wrap">
-              <img src={project.image} alt={project.title} />
-              <span className={`status-badge ${statusClass(project.status)}`}>{project.status}</span>
-              <div className="project-hover-overlay">
-                {project.live && (
-                  <a href={project.live} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                    <img src="https://cdn.simpleicons.org/googlechrome/FFFFFF" alt="" aria-hidden="true" />
-                    Live Demo
-                  </a>
-                )}
-                <a href={project.github} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                  <img src="https://cdn.simpleicons.org/github/FFFFFF" alt="" aria-hidden="true" />
-                  GitHub
-                </a>
-              </div>
-            </div>
+            {(() => {
+              const projectKey = `${project.title}-${index}`;
+              const images = Array.isArray(project.images) && project.images.length > 0
+                ? project.images
+                : [project.image || "/images/portfolio.png"];
+              const currentIndex = imageIndexes[projectKey] || 0;
+              const safeIndex = currentIndex >= images.length ? 0 : currentIndex;
+
+              return (
+                <div className={`project-media-wrap ${maximizedMedia[projectKey] ? "media-maximized" : ""}`}>
+                  <img src={images[safeIndex]} alt={`${project.title} screenshot ${safeIndex + 1}`} />
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        className="project-media-arrow arrow-left"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cycleProjectImage(projectKey, images.length, -1);
+                        }}
+                        aria-label="Previous project image"
+                      >
+                        &#8249;
+                      </button>
+                      <button
+                        type="button"
+                        className="project-media-arrow arrow-right"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cycleProjectImage(projectKey, images.length, 1);
+                        }}
+                        aria-label="Next project image"
+                      >
+                        &#8250;
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="project-media-size-toggle"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMediaSize(projectKey);
+                    }}
+                    aria-label={maximizedMedia[projectKey] ? "Minimize project image" : "Maximize project image"}
+                  >
+                    {maximizedMedia[projectKey] ? "-" : "+"}
+                  </button>
+                  {images.length > 1 && (
+                    <span className="project-image-count">
+                      {safeIndex + 1}/{images.length}
+                    </span>
+                  )}
+
+                  <span className={`status-badge ${statusClass(project.status)}`}>{project.status}</span>
+                  <div className="project-hover-overlay">
+                    {project.live && (
+                      <a href={project.live} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                        <img src="https://cdn.simpleicons.org/googlechrome/FFFFFF" alt="" aria-hidden="true" />
+                        Live Demo
+                      </a>
+                    )}
+                    <a href={project.github} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                      <img src="https://cdn.simpleicons.org/github/FFFFFF" alt="" aria-hidden="true" />
+                      GitHub
+                    </a>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="project-content">
               <h3>{project.title}</h3>
