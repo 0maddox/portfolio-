@@ -17,6 +17,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public'))); // Serve runtime public assets like /images
 app.use(express.static(path.join(__dirname, 'dist'))); // Serve React build
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded images
 
@@ -42,11 +43,22 @@ const storage = multer.diskStorage({
   }
 });
 
-const allowedMimeTypes = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
+const publicImagesStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const imagesDir = path.join(__dirname, 'public', 'images');
+    if (!fs.existsSync(imagesDir)) {
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+    cb(null, imagesDir);
+  },
+  filename: (req, file, cb) => {
+    const base = (req.body?.project || 'project').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const safeBase = base || 'project';
+    cb(null, `${safeBase}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+const allowedDocumentMimeTypes = new Set([
   'application/pdf',
   'text/plain',
   'text/markdown',
@@ -59,12 +71,37 @@ const allowedMimeTypes = new Set([
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (allowedMimeTypes.has(file.mimetype)) {
+    // Keep original uploaded file bytes with no compression to preserve quality.
+    if (file.mimetype.startsWith('image/') || allowedDocumentMimeTypes.has(file.mimetype)) {
       cb(null, true);
       return;
     }
 
     cb(new Error('Unsupported file type. Please upload images, PDF, or text/document files.'));
+  }
+});
+
+const projectImageUpload = multer({
+  storage: publicImagesStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Project image upload accepts image files only.'));
+  }
+});
+
+const profileImageUpload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Profile picture upload accepts image files only.'));
   }
 });
 
@@ -143,14 +180,49 @@ app.get('/api/check-session', (req, res) => {
   }
 });
 
+app.get('/api/public-images', (req, res) => {
+  const imagesDir = path.join(__dirname, 'public', 'images');
+  if (!fs.existsSync(imagesDir)) {
+    return res.json({ images: [] });
+  }
+
+  try {
+    const entries = fs.readdirSync(imagesDir, { withFileTypes: true });
+    const images = entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((name) => /\.(png|jpe?g|webp|gif|svg|avif|bmp|tiff?|heic|heif)$/i.test(name))
+      .map((name) => `/images/${name}`)
+      .sort((a, b) => b.localeCompare(a));
+
+    return res.json({ images });
+  } catch {
+    return res.status(500).json({ message: 'Could not read public images.' });
+  }
+});
+
 // Upload image
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.session.admin) return res.status(403).json({ message: 'Not authorized' });
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
+app.post('/api/upload-project-image', projectImageUpload.single('image'), (req, res) => {
+  if (!req.session.admin) return res.status(403).json({ message: 'Not authorized' });
+  res.json({ url: `/images/${req.file.filename}` });
+});
+
+app.post('/api/upload-profile-image', profileImageUpload.single('image'), (req, res) => {
+  if (!req.session.admin) return res.status(403).json({ message: 'Not authorized' });
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
+
 app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError || err?.message?.includes('Unsupported file type')) {
+  if (
+    err instanceof multer.MulterError ||
+    err?.message?.includes('Unsupported file type') ||
+    err?.message?.includes('accepts image files only')
+  ) {
     return res.status(400).json({ message: err.message || 'Upload failed' });
   }
   return next(err);

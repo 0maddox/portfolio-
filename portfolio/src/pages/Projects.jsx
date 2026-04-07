@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 const githubUsername = "0maddox";
 const GITHUB_CACHE_KEY = "portfolio_projects_github_cache_v1";
 const GITHUB_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_PROJECT_IMAGE = "/favicon.svg";
 
 const baseProjects = [
   {
@@ -40,8 +41,6 @@ const baseProjects = [
   },
 ];
 
-const categories = ["All", "Web App", "Interactive", "Gaming"];
-
 const techIcons = {
   React: "https://cdn.simpleicons.org/react/61DAFB",
   JavaScript: "https://cdn.simpleicons.org/javascript/F7DF1E",
@@ -52,6 +51,108 @@ const techIcons = {
   SQL: "https://cdn.simpleicons.org/mysql/4479A1",
   Codebase: "https://cdn.simpleicons.org/github/FFFFFF",
 };
+
+const githubImageExtensions = /\.(png|jpe?g|webp|gif|svg|avif|bmp|tiff?|heic|heif)$/i;
+
+function decodeBase64Utf8(base64Value) {
+  try {
+    return decodeURIComponent(escape(window.atob(base64Value.replace(/\n/g, ""))));
+  } catch {
+    try {
+      return window.atob(base64Value.replace(/\n/g, ""));
+    } catch {
+      return "";
+    }
+  }
+}
+
+function stripMarkdown(markdownText) {
+  return markdownText
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[>*_`~#-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractReadmeSummary(markdownText, fallback) {
+  if (!markdownText) return fallback;
+
+  const lines = markdownText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("#"))
+    .filter((line) => !line.startsWith("!"));
+
+  const candidate = lines.find((line) => {
+    const plain = stripMarkdown(line);
+    return plain.length >= 32 && /[a-zA-Z]/.test(plain);
+  });
+
+  const summary = stripMarkdown(candidate || "");
+  return summary || fallback;
+}
+
+async function fetchReadmeDescription(owner, repoName, signal, fallback) {
+  try {
+    const readmeRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repoName}/readme`,
+      {
+        headers: { Accept: "application/vnd.github+json" },
+        signal,
+      }
+    );
+
+    if (!readmeRes.ok) {
+      return fallback;
+    }
+
+    const readmeData = await readmeRes.json();
+    const decoded = readmeData?.content ? decodeBase64Utf8(readmeData.content) : "";
+    return extractReadmeSummary(decoded, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+async function fetchRepoImages(owner, repoName, branch, signal) {
+  if (!owner || !repoName || !branch) return [];
+
+  try {
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repoName}/git/trees/${branch}?recursive=1`,
+      {
+        headers: { Accept: "application/vnd.github+json" },
+        signal,
+      }
+    );
+
+    if (!treeRes.ok) {
+      return [];
+    }
+
+    const treeData = await treeRes.json();
+    const imagePaths = Array.isArray(treeData?.tree)
+      ? treeData.tree
+          .filter((item) => item?.type === "blob" && typeof item?.path === "string")
+          .map((item) => item.path)
+          .filter((repoPath) => githubImageExtensions.test(repoPath))
+      : [];
+
+    return imagePaths.map((repoPath) => {
+      const encodedPath = repoPath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+      return `https://raw.githubusercontent.com/${owner}/${repoName}/${branch}/${encodedPath}`;
+    });
+  } catch {
+    return [];
+  }
+}
 
 function statusClass(status) {
   if (status === "Live") return "live";
@@ -74,7 +175,7 @@ function normalizeProject(project) {
   const images = Array.isArray(project?.images)
     ? project.images.filter(Boolean)
     : [];
-  const fallbackImage = project?.image || "/images/portfolio.png";
+  const fallbackImage = project?.image || DEFAULT_PROJECT_IMAGE;
   const normalizedTech = Array.isArray(project?.tech) && project.tech.length > 0
     ? project.tech.filter(Boolean).map((item) => item.toString())
     : ["Codebase"];
@@ -96,25 +197,62 @@ function normalizeProject(project) {
     github: normalizedGithub,
     tech: normalizedTech,
     features: normalizedFeatures,
+    manualImages: Boolean(project?.manualImages),
     image: fallbackImage,
     images: images.length > 0 ? images : [fallbackImage],
   };
 }
 
+function slugifyProjectTitle(title) {
+  return (title || "")
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+async function readResponsePayload(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      return await response.json();
+    } catch {
+      return {};
+    }
+  }
+
+  try {
+    const text = await response.text();
+    return { message: text || "Request failed." };
+  } catch {
+    return {};
+  }
+}
+
 export default function Projects() {
-  const [selected, setSelected] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
   const [activeProject, setActiveProject] = useState(null);
   const [githubProjects, setGithubProjects] = useState([]);
   const [editableProjects, setEditableProjects] = useState(baseProjects.map(normalizeProject));
   const [isAdmin, setIsAdmin] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [selectedProjectTitle, setSelectedProjectTitle] = useState(baseProjects[0]?.title || "");
+  const [featuredProjectTitle, setFeaturedProjectTitle] = useState(baseProjects[0]?.title || "");
   const [editorMessage, setEditorMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [imageIndexes, setImageIndexes] = useState({});
   const [maximizedMedia, setMaximizedMedia] = useState({});
   const [ignoreBackdropUntil, setIgnoreBackdropUntil] = useState(0);
+  const [publicImages, setPublicImages] = useState([]);
+  const [cardUploadState, setCardUploadState] = useState({});
+  const [libraryChoiceByProject, setLibraryChoiceByProject] = useState({});
+  const [imageLinkByProject, setImageLinkByProject] = useState({});
+  const [selectedCardFilesByProject, setSelectedCardFilesByProject] = useState({});
+  const [imagePickerForProject, setImagePickerForProject] = useState("");
+  const [imagePickerSelections, setImagePickerSelections] = useState({});
+  const [pendingAutoSaveProject, setPendingAutoSaveProject] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +278,7 @@ export default function Projects() {
           const normalizedStored = storedProjects.map(normalizeProject);
           setEditableProjects(normalizedStored);
           setSelectedProjectTitle(normalizedStored[0]?.title || "");
+          setFeaturedProjectTitle((siteData?.featuredProjectTitle || normalizedStored[0]?.title || "").toString());
         }
       } catch {
         if (cancelled) return;
@@ -175,22 +314,50 @@ export default function Projects() {
         if (!githubRes.ok || cancelled) return;
 
         const data = await githubRes.json();
+
         const mapped = Array.isArray(data)
-          ? data.filter((repo) => !repo.fork).map((repo) => normalizeProject({
-              title: repo.name,
-              description: repo.description || "Repository synced from GitHub.",
-              image: "/images/portfolio.png",
-              tech: [repo.language || "Codebase"],
-              live: repo.homepage || "",
-              github: repo.html_url,
-              category: "Web App",
-              status: repo.homepage ? "Live" : "In Progress",
-              problem: "Need a maintainable project structure and clear implementation path.",
-              solution: "Implemented and iterated features directly from real project requirements.",
-              features: ["Version controlled", "Ongoing iteration", "Practical architecture"],
-              challenges: "Managing scope and technical trade-offs while improving quality.",
-              learned: "Better workflow discipline, debugging approach, and delivery speed.",
-            }))
+          ? (await Promise.all(
+              data
+                .filter((repo) => !repo.fork)
+                .map(async (repo) => {
+                  const fallbackDescription = repo.description || "Repository synced from GitHub.";
+                  const [readmeDescription, repoImages] = await Promise.all([
+                    fetchReadmeDescription(
+                      githubUsername,
+                      repo.name,
+                      controller.signal,
+                      fallbackDescription
+                    ),
+                    fetchRepoImages(
+                      githubUsername,
+                      repo.name,
+                      repo.default_branch,
+                      controller.signal
+                    ),
+                  ]);
+
+                  const fallbackImage = "/images/portfolio.png";
+                  const normalizedImages = repoImages.length > 0 ? repoImages : [fallbackImage];
+
+                  return normalizeProject({
+                    title: repo.name,
+                    description: readmeDescription,
+                    image: normalizedImages[0],
+                    images: normalizedImages,
+                    tech: [repo.language || "Codebase"],
+                    live: repo.homepage || "",
+                    github: repo.html_url,
+                    category: "Web App",
+                    status: repo.homepage ? "Live" : "In Progress",
+                    manualImages: true,
+                    problem: "Need a maintainable project structure and clear implementation path.",
+                    solution: "Implemented and iterated features directly from real project requirements.",
+                    features: ["Version controlled", "Ongoing iteration", "Practical architecture"],
+                    challenges: "Managing scope and technical trade-offs while improving quality.",
+                    learned: "Better workflow discipline, debugging approach, and delivery speed.",
+                  });
+                })
+            ))
           : [];
 
         setGithubProjects(mapped);
@@ -209,8 +376,22 @@ export default function Projects() {
       }
     };
 
+    const loadPublicImages = async () => {
+      try {
+        const res = await fetch("/api/public-images", { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (Array.isArray(data?.images)) {
+          setPublicImages(data.images);
+        }
+      } catch {
+        // Ignore public image loading failure and keep defaults.
+      }
+    };
+
     loadLocalPageData();
     loadGithubProjects();
+    loadPublicImages();
 
     return () => {
       cancelled = true;
@@ -222,13 +403,72 @@ export default function Projects() {
     return [...editableProjects, ...githubProjects];
   }, [editableProjects, githubProjects]);
 
-  const filteredProjects = useMemo(() => {
-    return selected === "All"
-      ? allProjects
-      : allProjects.filter((p) => p.category === selected);
-  }, [allProjects, selected]);
+  const allProjectsWithPublicImages = useMemo(() => {
+    const galleryFallback = publicImages[0] || DEFAULT_PROJECT_IMAGE;
 
-  const featuredProject = editableProjects[0] || allProjects[0] || null;
+    if (!Array.isArray(publicImages) || publicImages.length === 0) {
+      return allProjects;
+    }
+
+    return allProjects.map((project) => {
+      if (project.manualImages) {
+        return project;
+      }
+
+      const slug = slugifyProjectTitle(project.title);
+      const matching = publicImages.filter((imgPath) => imgPath.toLowerCase().includes(slug));
+
+      if (matching.length === 0) {
+        return normalizeProject({
+          ...project,
+          image: project.image || galleryFallback,
+          images: Array.isArray(project.images) && project.images.length > 0
+            ? project.images
+            : [galleryFallback],
+        });
+      }
+
+      return normalizeProject({
+        ...project,
+        image: matching[0],
+        images: matching,
+      });
+    });
+  }, [allProjects, publicImages]);
+
+  const filteredProjects = useMemo(() => {
+    return allProjectsWithPublicImages.filter((project) => {
+      const categoryPass = selectedCategory === "All" || project.category === selectedCategory;
+      const statusPass = selectedStatus === "All" || project.status === selectedStatus;
+      return categoryPass && statusPass;
+    });
+  }, [allProjectsWithPublicImages, selectedCategory, selectedStatus]);
+
+  const availableCategories = useMemo(() => {
+    const unique = new Set(allProjectsWithPublicImages.map((project) => project.category).filter(Boolean));
+    return ["All", ...Array.from(unique)];
+  }, [allProjectsWithPublicImages]);
+
+  const availableStatuses = useMemo(() => {
+    const unique = new Set(allProjectsWithPublicImages.map((project) => project.status).filter(Boolean));
+    return ["All", ...Array.from(unique)];
+  }, [allProjectsWithPublicImages]);
+
+  const featuredProject =
+    allProjectsWithPublicImages.find((project) => project.title === featuredProjectTitle) ||
+    allProjectsWithPublicImages[0] ||
+    null;
+
+  const featuredOptions = useMemo(() => {
+    const seen = new Set();
+    return allProjectsWithPublicImages
+      .map((project) => project.title)
+      .filter((title) => {
+        if (!title || seen.has(title)) return false;
+        seen.add(title);
+        return true;
+      });
+  }, [allProjectsWithPublicImages]);
 
   const cycleProjectImage = (projectKey, totalImages, direction) => {
     if (totalImages <= 1) return;
@@ -258,8 +498,9 @@ export default function Projects() {
       for (const file of files) {
         const formData = new FormData();
         formData.append("image", file);
+        formData.append("project", selectedProjectTitle);
 
-        const res = await fetch("/api/upload", {
+        const res = await fetch("/api/upload-project-image", {
           method: "POST",
           credentials: "include",
           body: formData,
@@ -303,7 +544,10 @@ export default function Projects() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ projects: editableProjects }),
+        body: JSON.stringify({
+          projects: editableProjects,
+          featuredProjectTitle,
+        }),
       });
       const data = await res.json();
 
@@ -320,6 +564,60 @@ export default function Projects() {
     }
   };
 
+  useEffect(() => {
+    if (!pendingAutoSaveProject) return;
+
+    const projectTitle = pendingAutoSaveProject;
+    setPendingAutoSaveProject("");
+
+    const autoSave = async () => {
+      setIsSaving(true);
+      try {
+        const res = await fetch("/api/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            projects: editableProjects,
+            featuredProjectTitle,
+          }),
+        });
+        const data = await readResponsePayload(res);
+
+        if (!res.ok || !data.success) {
+          setCardUploadState((prev) => ({
+            ...prev,
+            [projectTitle]: {
+              uploading: false,
+              message: data.message || "Applied, but auto-save failed.",
+            },
+          }));
+          return;
+        }
+
+        setCardUploadState((prev) => ({
+          ...prev,
+          [projectTitle]: {
+            uploading: false,
+            message: "Selected images applied and auto-saved.",
+          },
+        }));
+      } catch {
+        setCardUploadState((prev) => ({
+          ...prev,
+          [projectTitle]: {
+            uploading: false,
+            message: "Applied, but auto-save failed. Please try Save Project Media.",
+          },
+        }));
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    autoSave();
+  }, [pendingAutoSaveProject, editableProjects, featuredProjectTitle]);
+
   const openProjectModal = (project) => {
     // Guard against the opening click being interpreted as a backdrop close.
     setIgnoreBackdropUntil(Date.now() + 220);
@@ -332,6 +630,304 @@ export default function Projects() {
     if (event.target !== event.currentTarget) return;
     if (Date.now() < ignoreBackdropUntil) return;
     setActiveProject(null);
+  };
+
+  const clearSelectedCardFiles = (projectTitle) => {
+    setSelectedCardFilesByProject((prev) => {
+      const current = prev[projectTitle] || [];
+      current.forEach((item) => {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+
+      const next = { ...prev };
+      delete next[projectTitle];
+      return next;
+    });
+  };
+
+  const handleSelectCardImages = (projectTitle, event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    clearSelectedCardFiles(projectTitle);
+
+    const selected = files.map((file, idx) => ({
+      id: `${projectTitle}-${Date.now()}-${idx}`,
+      file,
+      name: file.name,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setSelectedCardFilesByProject((prev) => ({
+      ...prev,
+      [projectTitle]: selected,
+    }));
+
+    setCardUploadState((prev) => ({
+      ...prev,
+      [projectTitle]: { uploading: false, message: `${selected.length} image(s) selected. Preview before upload.` },
+    }));
+  };
+
+  const handleUploadCardImage = async (projectTitle) => {
+    const selected = selectedCardFilesByProject[projectTitle] || [];
+    const files = selected.map((item) => item.file).filter(Boolean);
+
+    if (files.length === 0) {
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: { uploading: false, message: "Choose image(s) first." },
+      }));
+      return;
+    }
+
+    setCardUploadState((prev) => ({
+      ...prev,
+      [projectTitle]: { uploading: true, message: `Uploading ${files.length} image(s)...` },
+    }));
+
+    try {
+      const uploadedUrls = [];
+
+      for (const file of files) {
+        let uploaded = false;
+        let failureMessage = "Upload failed.";
+
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("project", projectTitle);
+
+        const res = await fetch("/api/upload-project-image", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const data = await readResponsePayload(res);
+
+        if (res.ok && data?.url) {
+          uploadedUrls.push(data.url);
+          uploaded = true;
+        } else if (res.status === 403) {
+          setCardUploadState((prev) => ({
+            ...prev,
+            [projectTitle]: { uploading: false, message: "Not authorized. Please log in again." },
+          }));
+          return;
+        } else {
+          const statusMessage = `${res.status}${res.statusText ? ` ${res.statusText}` : ""}`;
+          failureMessage = data?.message || `Project image upload failed (${statusMessage}).`;
+        }
+
+        if (!uploaded) {
+          setCardUploadState((prev) => ({
+            ...prev,
+            [projectTitle]: { uploading: false, message: failureMessage },
+          }));
+          return;
+        }
+      }
+
+      setPublicImages((prev) => {
+        const merged = [...uploadedUrls, ...prev];
+        return Array.from(new Set(merged));
+      });
+
+      setEditableProjects((prev) => prev.map((project) => {
+        if (project.title !== projectTitle) return project;
+        const nextImages = [...uploadedUrls, ...(project.images || [])].filter(Boolean);
+        return normalizeProject({
+          ...project,
+          manualImages: true,
+          image: nextImages[0],
+          images: nextImages,
+        });
+      }));
+
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: {
+          uploading: false,
+          message: `${uploadedUrls.length} image(s) uploaded. Click Save Project Media to persist.`
+        },
+      }));
+      clearSelectedCardFiles(projectTitle);
+    } catch {
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: {
+          uploading: false,
+          message: "Could not upload right now. Ensure backend is running (npm run server).",
+        },
+      }));
+    }
+  };
+
+  const updateProjectImagesByTitle = (projectTitle, updater) => {
+    const matchedEditable = editableProjects.some((project) => project.title === projectTitle);
+
+    setEditableProjects((prev) => prev.map((project) => {
+      if (project.title !== projectTitle) return project;
+      return normalizeProject(updater(project));
+    }));
+
+    if (!matchedEditable) {
+      setGithubProjects((prev) => prev.map((project) => {
+        if (project.title !== projectTitle) return project;
+        return normalizeProject(updater(project));
+      }));
+    }
+
+    return matchedEditable;
+  };
+
+  const handleAssignLibraryImage = (projectTitle) => {
+    const selectedImage = libraryChoiceByProject[projectTitle];
+    if (!selectedImage) {
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: { uploading: false, message: "Select an image from library first." },
+      }));
+      return;
+    }
+
+    updateProjectImagesByTitle(projectTitle, (project) => {
+      const nextImages = [selectedImage, ...(project.images || []).filter((img) => img !== selectedImage)].filter(Boolean);
+      return {
+        ...project,
+        manualImages: true,
+        image: nextImages[0] || project.image,
+        images: nextImages,
+      };
+    });
+
+    setCardUploadState((prev) => ({
+      ...prev,
+      [projectTitle]: { uploading: false, message: "Image assigned to this project." },
+    }));
+  };
+
+  const handleRemoveProjectImage = (projectTitle, imagePath) => {
+    updateProjectImagesByTitle(projectTitle, (project) => {
+      const nextImages = (project.images || []).filter((img) => img !== imagePath);
+      const fallback = project.image || publicImages[0] || DEFAULT_PROJECT_IMAGE;
+      return {
+        ...project,
+        manualImages: true,
+        image: nextImages[0] || fallback,
+        images: nextImages.length > 0 ? nextImages : [fallback],
+      };
+    });
+
+    setCardUploadState((prev) => ({
+      ...prev,
+      [projectTitle]: { uploading: false, message: "Image removed from this project." },
+    }));
+  };
+
+  const getSelectableImagesForProject = (project) => {
+    const currentImages = Array.isArray(project?.images) ? project.images : [];
+    const merged = [...currentImages, ...publicImages].filter(Boolean);
+    return Array.from(new Set(merged));
+  };
+
+  const handleOpenImagePicker = (project) => {
+    const initialSelection = Array.isArray(project.images) && project.images.length > 0
+      ? project.images
+      : [project.image || publicImages[0] || DEFAULT_PROJECT_IMAGE];
+
+    setImagePickerSelections((prev) => ({
+      ...prev,
+      [project.title]: initialSelection,
+    }));
+    setImagePickerForProject(project.title);
+  };
+
+  const handleToggleImageSelection = (projectTitle, imagePath) => {
+    setImagePickerSelections((prev) => {
+      const existing = prev[projectTitle] || [];
+      const hasImage = existing.includes(imagePath);
+      const next = hasImage
+        ? existing.filter((img) => img !== imagePath)
+        : [...existing, imagePath];
+
+      return {
+        ...prev,
+        [projectTitle]: next,
+      };
+    });
+  };
+
+  const handleApplyImageSelection = (projectTitle) => {
+    const selectedImages = (imagePickerSelections[projectTitle] || []).filter(Boolean);
+    if (selectedImages.length === 0) {
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: { uploading: false, message: "Select at least one image." },
+      }));
+      return;
+    }
+
+    const updatedEditableProject = updateProjectImagesByTitle(projectTitle, (project) => ({
+      ...project,
+      manualImages: true,
+      image: selectedImages[0],
+      images: selectedImages,
+    }));
+
+    setImagePickerForProject("");
+
+    if (updatedEditableProject) {
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: { uploading: false, message: "Applying images and auto-saving..." },
+      }));
+      setPendingAutoSaveProject(projectTitle);
+      return;
+    }
+
+    setCardUploadState((prev) => ({
+      ...prev,
+      [projectTitle]: { uploading: false, message: "Selected images applied locally for this synced project." },
+    }));
+  };
+
+  const isValidImageLink = (value) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  const handleAddImageLink = (projectTitle) => {
+    const link = (imageLinkByProject[projectTitle] || "").trim();
+    if (!isValidImageLink(link)) {
+      setCardUploadState((prev) => ({
+        ...prev,
+        [projectTitle]: { uploading: false, message: "Please enter a valid image URL (http/https)." },
+      }));
+      return;
+    }
+
+    updateProjectImagesByTitle(projectTitle, (project) => {
+      const nextImages = [link, ...(project.images || []).filter((img) => img !== link)].filter(Boolean);
+      return {
+        ...project,
+        manualImages: true,
+        image: nextImages[0] || project.image,
+        images: nextImages,
+      };
+    });
+
+    setImageLinkByProject((prev) => ({ ...prev, [projectTitle]: "" }));
+    setCardUploadState((prev) => ({
+      ...prev,
+      [projectTitle]: { uploading: false, message: "Image link added to this project." },
+    }));
   };
 
   return (
@@ -362,6 +958,19 @@ export default function Projects() {
                 {editableProjects.map((project) => (
                   <option key={project.title} value={project.title}>
                     {project.title}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="featured-project-picker">Featured project</label>
+              <select
+                id="featured-project-picker"
+                value={featuredProjectTitle}
+                onChange={(e) => setFeaturedProjectTitle(e.target.value)}
+              >
+                {featuredOptions.map((title) => (
+                  <option key={`featured-${title}`} value={title}>
+                    {title}
                   </option>
                 ))}
               </select>
@@ -405,23 +1014,44 @@ export default function Projects() {
             alt={featuredProject.title}
             loading="eager"
             decoding="async"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = publicImages[0] || DEFAULT_PROJECT_IMAGE;
+            }}
           />
           <h3>{featuredProject.title}</h3>
           <p>{featuredProject.description}</p>
         </motion.article>
       )}
 
-      <div className="project-filter-row">
-        {categories.map((category) => (
-          <button
-            key={category}
-            type="button"
-            className={`project-filter-chip ${selected === category ? "active" : ""}`}
-            onClick={() => setSelected(category)}
-          >
-            {category}
-          </button>
-        ))}
+      <div className="project-filter-groups">
+        <div className="project-filter-row">
+          <span className="project-filter-group-label">Category</span>
+          {availableCategories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              className={`project-filter-chip ${selectedCategory === category ? "active" : ""}`}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
+        <div className="project-filter-row">
+          <span className="project-filter-group-label">Status</span>
+          {availableStatuses.map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={`project-filter-chip ${selectedStatus === status ? "active" : ""}`}
+              onClick={() => setSelectedStatus(status)}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="projects-premium-grid">
@@ -450,6 +1080,10 @@ export default function Projects() {
                     alt={`${project.title} screenshot ${safeIndex + 1}`}
                     loading="lazy"
                     decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = publicImages[0] || DEFAULT_PROJECT_IMAGE;
+                    }}
                   />
                   {images.length > 1 && (
                     <>
@@ -522,6 +1156,172 @@ export default function Projects() {
                   </span>
                 ))}
               </div>
+
+              {isAdmin && (
+                <div
+                  className="card-upload-row"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <label className="project-upload-label" htmlFor={`card-upload-${index}`}>
+                    Choose Project Image(s)
+                    <input
+                      id={`card-upload-${index}`}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleSelectCardImages(project.title, e)}
+                      disabled={Boolean(cardUploadState[project.title]?.uploading)}
+                    />
+                  </label>
+
+                  {selectedCardFilesByProject[project.title]?.length > 0 && (
+                    <div className="card-selected-preview-grid">
+                      {selectedCardFilesByProject[project.title].map((item) => (
+                        <article key={item.id} className="card-selected-preview-item">
+                          <img src={item.previewUrl} alt={item.name} />
+                          <span>{item.name}</span>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn card-library-assign-btn"
+                    disabled={Boolean(cardUploadState[project.title]?.uploading)}
+                    onClick={() => handleUploadCardImage(project.title)}
+                  >
+                    {(cardUploadState[project.title]?.uploading) ? "Uploading..." : "Upload Selected"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn card-save-media-btn"
+                    disabled={isSaving}
+                    onClick={handleSaveProjectMedia}
+                  >
+                    {isSaving ? "Saving..." : "Save Project Media"}
+                  </button>
+
+                  <div className="card-library-row">
+                    <select
+                      value={libraryChoiceByProject[project.title] || ""}
+                      onChange={(e) => {
+                        const selectedPath = e.target.value;
+                        setLibraryChoiceByProject((prev) => ({
+                          ...prev,
+                          [project.title]: selectedPath,
+                        }));
+                      }}
+                    >
+                      <option value="">Choose from /public/images</option>
+                      {publicImages.map((imgPath) => (
+                        <option key={`${project.title}-${imgPath}`} value={imgPath}>
+                          {imgPath.replace("/images/", "")}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn card-library-assign-btn"
+                      onClick={() => handleAssignLibraryImage(project.title)}
+                    >
+                      Use Image
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn card-image-picker-toggle"
+                    onClick={() => handleOpenImagePicker(project)}
+                  >
+                    Choose Images to Display
+                  </button>
+
+                  {imagePickerForProject === project.title && (
+                    <div className="card-image-picker-pop">
+                      <p>Select image(s) for this project:</p>
+                      <div className="card-image-picker-grid">
+                        {getSelectableImagesForProject(project).map((imgPath) => {
+                          const selectedList = imagePickerSelections[project.title] || [];
+                          const isSelected = selectedList.includes(imgPath);
+                          return (
+                            <button
+                              key={`${project.title}-picker-${imgPath}`}
+                              type="button"
+                              className={`card-image-picker-item ${isSelected ? "selected" : ""}`}
+                              onClick={() => handleToggleImageSelection(project.title, imgPath)}
+                              title={imgPath}
+                            >
+                              <img src={imgPath} alt={imgPath} />
+                              <span>{imgPath.replace("/images/", "").replace("/uploads/", "")}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="card-image-picker-actions">
+                        <button
+                          type="button"
+                          className="btn card-library-assign-btn"
+                          onClick={() => handleApplyImageSelection(project.title)}
+                        >
+                          Apply Selected Images
+                        </button>
+                        <button
+                          type="button"
+                          className="btn card-library-assign-btn"
+                          onClick={() => setImagePickerForProject("")}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="card-link-row">
+                    <input
+                      type="url"
+                      placeholder="Paste image URL (https://...)"
+                      value={imageLinkByProject[project.title] || ""}
+                      onChange={(e) => {
+                        const linkValue = e.target.value;
+                        setImageLinkByProject((prev) => ({
+                          ...prev,
+                          [project.title]: linkValue,
+                        }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn card-library-assign-btn"
+                      onClick={() => handleAddImageLink(project.title)}
+                    >
+                      Add Link
+                    </button>
+                  </div>
+
+                  <div className="card-assigned-images">
+                    {(project.images || []).map((imgPath) => (
+                      <button
+                        key={`${project.title}-${imgPath}`}
+                        type="button"
+                        className="card-assigned-image-pill"
+                        onClick={() => handleRemoveProjectImage(project.title, imgPath)}
+                        title="Remove image from this project"
+                      >
+                        {imgPath.replace("/images/", "").replace("/uploads/", "")}
+                        <span aria-hidden="true"> x</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {cardUploadState[project.title]?.message && (
+                    <p className="project-form-message card-upload-message">
+                      {cardUploadState[project.title].message}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </motion.article>
         ))}

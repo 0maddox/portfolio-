@@ -326,7 +326,7 @@ export default function Home() {
         const formData = new FormData();
         formData.append("image", new File([pendingCroppedBlob], "profile.jpg", { type: "image/jpeg" }));
 
-        const uploadRes = await fetch("/api/upload", {
+        const uploadRes = await fetch("/api/upload-profile-image", {
           method: "POST",
           credentials: "include",
           body: formData,
